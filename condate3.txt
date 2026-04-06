@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>献立ガチャ</title>
+
+  <!-- PWA / iPhone ホーム画面対応 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="献立ガチャ" />
+  <meta name="theme-color" content="#667eea" />
+  <meta name="description" content="食材を入力してあなただけの献立をガチャで決めよう！PFCバランスも計算します。" />
+
+  <!-- アイコン（SVGをインライン Base64 で埋め込み） -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSJ1cmwoI2cpIi8+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNjY3ZWVhIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNzY0YmEyIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHRleHQgeD0iNjQiIHk9Ijg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjgwIj7wn2ewPC90ZXh0Pjwvc3ZnPg==" />
+  <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSJ1cmwoI2cpIi8+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNjY3ZWVhIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNzY0YmEyIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHRleHQgeD0iNjQiIHk9Ijg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjgwIj7wn2ewPC90ZXh0Pjwvc3ZnPg==" type="image/svg+xml" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', 'Yu Gothic', sans-serif; }
+    button:hover:not(:disabled) { opacity: 0.87; }
+    input:focus { outline: none; }
+    .tag-input:focus { outline: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    /* =============================================
+       レシピデータベース（25種類）
+       mainIngredients: マッチング対象の主な食材
+    ============================================= */
+    const ALL_RECIPES = [
+      {
+        name: "親子丼", emoji: "🍚", color: "#E6A800", bg: "#FFFDE7",
+        mainIngredients: ["鶏肉", "玉ねぎ", "卵"],
+        displayIngredients: ["鶏肉 200g", "玉ねぎ 1/2個", "卵 3個", "だし 200ml", "醤油・みりん 各大2"],
+        steps: [
+          "鶏肉を一口大に切り、玉ねぎは薄切りにする",
+          "だし・醤油大2・みりん大2・砂糖大1を合わせてタレを作る",
+          "フライパンにタレと玉ねぎを中火で2分煮る",
+          "鶏肉を加えて火が通るまで約5分煮る",
+          "溶き卵を回しかけ、半熟になったら火を止める",
+          "ご飯にのせて完成！",
+        ],
+        time: "15分", difficulty: "★☆☆",
+        kcal: 550, protein: 38, fat: 15, carbs: 65,
+      },
+      {
+        name: "豚の生姜焼き", emoji: "🐷", color: "#E07000", bg: "#FFF3E0",
+        mainIngredients: ["豚肉", "玉ねぎ", "生姜"],
+        displayIngredients: ["豚ロース薄切り 200g", "玉ねぎ 1/2個", "生姜 1かけ", "醤油・みりん・酒 各大2"],
+        steps: [
+          "豚肉に醤油・みりん・酒・すりおろし生姜を揉み込む",
+          "玉ねぎを薄切りにしてフライパンで炒める",
+          "玉ねぎがしんなりしたら豚肉を加えて炒める",
+          "タレを全体に絡めながら炒め合わせる",
+          "キャベツの千切りと一緒に盛り付けて完成！",
+        ],
+        time: "15分", difficulty: "★☆☆",
+        kcal: 480, protein: 30, fat: 22, carbs: 30,
+      },
+      {
+        name: "肉じゃが", emoji: "🥔", color: "#8D6E63", bg: "#EFEBE9",
+        mainIngredients: ["牛肉", "じゃがいも", "玉ねぎ", "にんじん"],
+        displayIngredients: ["牛切り落とし 150g", "じゃがいも 3個", "玉ねぎ 1個", "にんじん 1本", "醤油・みりん・砂糖"],
+        steps: [
+          "じゃがいも・玉ねぎはざく切り、にんじんは乱切りにする",
+          "鍋に油を熱して牛肉を炒め、色が変わったら野菜を加える",
+          "だし300ml・醤油大3・みりん大3・砂糖大2を加える",
+          "中火で蓋をして20分ほど煮込む",
+          "じゃがいもが柔らかくなったら完成！",
+        ],
+        time: "30分", difficulty: "★★☆",
+        kcal: 420, protein: 20, fat: 12, carbs: 55,
+      },
+      {
+        name: "鮭のムニエル", emoji: "🐟", color: "#FF7043", bg: "#FBE9E7",
+        mainIngredients: ["鮭", "バター"],
+        displayIngredients: ["鮭 2切れ", "バター 15g", "塩コショウ 少々", "薄力粉 大1", "レモン 1/4個"],
+        steps: [
+          "鮭に塩コショウして15分置き、薄力粉をまぶす",
+          "フライパンにバターを溶かし中火で鮭を焼く",
+          "皮目から3分、裏返して3分焼く",
+          "レモン汁をかけて完成！ブロッコリーを添えると◎",
+        ],
+        time: "20分", difficulty: "★☆☆",
+        kcal: 340, protein: 28, fat: 18, carbs: 10,
+      },
+      {
+        name: "麻婆豆腐", emoji: "🌶️", color: "#C62828", bg: "#FFEBEE",
+        mainIngredients: ["豆腐", "豚ひき肉", "長ネギ"],
+        displayIngredients: ["豆腐 1丁", "豚ひき肉 100g", "長ネギ 1/2本", "豆板醤 小1", "鶏がらスープ 150ml"],
+        steps: [
+          "豆腐を2cm角に切り、水切りしておく",
+          "フライパンに油と豆板醤を入れて香りを出す",
+          "豚ひき肉を加えてよく炒める",
+          "鶏がらスープ・醤油大1・砂糖小1を加えて煮立てる",
+          "豆腐を加えて3分煮たら水溶き片栗粉でとろみをつける",
+          "長ネギを散らして完成！",
+        ],
+        time: "15分", difficulty: "★★☆",
+        kcal: 310, protein: 22, fat: 18, carbs: 12,
+      },
+      {
+        name: "野菜炒め", emoji: "🥬", color: "#388E3C", bg: "#E8F5E9",
+        mainIngredients: ["キャベツ", "もやし", "豚肉"],
+        displayIngredients: ["豚こま肉 150g", "キャベツ 1/4個", "もやし 1袋", "にんじん 1/3本", "醤油・塩コショウ"],
+        steps: [
+          "豚肉は一口大、キャベツはざく切りにする",
+          "フライパンに油を熱して豚肉を炒める",
+          "にんじん・キャベツの芯を加えて炒める",
+          "キャベツ・もやしを加えて強火で手早く炒める",
+          "醤油大1・塩コショウで味を整えて完成！",
+        ],
+        time: "10分", difficulty: "★☆☆",
+        kcal: 320, protein: 22, fat: 16, carbs: 20,
+      },
+      {
+        name: "オムライス", emoji: "🍳", color: "#F9A825", bg: "#FFFDE7",
+        mainIngredients: ["卵", "玉ねぎ", "ご飯"],
+        displayIngredients: ["卵 3個", "玉ねぎ 1/2個", "ご飯 200g", "ケチャップ 大3", "バター 10g"],
+        steps: [
+          "玉ねぎをみじん切りにしてバターで炒める",
+          "ご飯を加えてケチャップ大2で炒めチキンライスを作る",
+          "別のフライパンに溶き卵を流し込む",
+          "半熟になったらチキンライスを包む",
+          "皿に盛ってケチャップをかけて完成！",
+        ],
+        time: "20分", difficulty: "★★☆",
+        kcal: 580, protein: 18, fat: 20, carbs: 78,
+      },
+      {
+        name: "鶏肉カレー", emoji: "🍛", color: "#F57F17", bg: "#FFF8E1",
+        mainIngredients: ["鶏肉", "じゃがいも", "にんじん", "玉ねぎ"],
+        displayIngredients: ["鶏もも肉 300g", "じゃがいも 2個", "にんじん 1本", "玉ねぎ 1個", "カレールー 3〜4皿分"],
+        steps: [
+          "鶏肉・野菜を一口大に切る",
+          "鍋に油を熱して玉ねぎを飴色まで炒める",
+          "鶏肉・にんじん・じゃがいもを加えて炒める",
+          "水600mlを加えて中火で20分煮込む",
+          "火を止めてカレールーを溶かし、再加熱して完成！",
+        ],
+        time: "40分", difficulty: "★★☆",
+        kcal: 620, protein: 32, fat: 20, carbs: 80,
+      },
+      {
+        name: "チャーハン", emoji: "🍚", color: "#6D4C41", bg: "#EFEBE9",
+        mainIngredients: ["ご飯", "卵", "長ネギ"],
+        displayIngredients: ["ご飯 200g", "卵 2個", "長ネギ 1/3本", "醤油 大1", "塩コショウ 少々"],
+        steps: [
+          "卵をよく溶いておく。長ネギをみじん切りにする",
+          "フライパンを強火で熱して油を多めに入れる",
+          "卵を入れてすぐにご飯を加えてほぐす",
+          "長ネギを加えて強火で手早く炒める",
+          "醤油を鍋肌から回しかけ塩コショウで味を調えて完成！",
+        ],
+        time: "10分", difficulty: "★★☆",
+        kcal: 460, protein: 14, fat: 16, carbs: 64,
+      },
+      {
+        name: "ポテトサラダ", emoji: "🥗", color: "#827717", bg: "#F9FBE7",
+        mainIngredients: ["じゃがいも", "きゅうり", "玉ねぎ"],
+        displayIngredients: ["じゃがいも 3個", "きゅうり 1本", "玉ねぎ 1/4個", "マヨネーズ 大3", "塩コショウ"],
+        steps: [
+          "じゃがいもを茹でて皮をむき、熱いうちにつぶす",
+          "きゅうりは薄切りして塩もみ、玉ねぎは薄切りにする",
+          "粗熱が取れたらマヨネーズを加えて混ぜる",
+          "きゅうり・玉ねぎを加えて塩コショウで味を調える",
+          "冷蔵庫で冷やして完成！ハムを加えると◎",
+        ],
+        time: "20分", difficulty: "★☆☆",
+        kcal: 260, protein: 5, fat: 14, carbs: 30,
+      },
+      {
+        name: "ほうれん草の卵炒め", emoji: "🥬", color: "#2E7D32", bg: "#E8F5E9",
+        mainIngredients: ["ほうれん草", "卵"],
+        displayIngredients: ["ほうれん草 1束", "卵 2個", "にんにく 1かけ", "醤油 大1", "塩コショウ 少々"],
+        steps: [
+          "ほうれん草を5cm幅に切る。卵を溶いておく",
+          "フライパンに油とにんにくを入れて香りを出す",
+          "ほうれん草を加えて強火でさっと炒める",
+          "溶き卵を回しかけてふんわりと炒め合わせる",
+          "醤油をかけて塩コショウで味を調えて完成！",
+        ],
+        time: "10分", difficulty: "★☆☆",
+        kcal: 180, protein: 12, fat: 10, carbs: 8,
+      },
+      {
+        name: "なす味噌炒め", emoji: "🍆", color: "#6A1B9A", bg: "#F3E5F5",
+        mainIngredients: ["なす", "豚肉", "味噌"],
+        displayIngredients: ["なす 3本", "豚こま肉 100g", "味噌 大1.5", "みりん・酒 各大1", "ごま油 大1"],
+        steps: [
+          "なすを乱切りにして水にさらす",
+          "味噌・みりん・酒・砂糖小1を混ぜ合わせておく",
+          "ごま油で豚肉を炒め、水気を切ったなすを加える",
+          "なすが柔らかくなったら合わせ調味料を絡める",
+          "仕上げにごまを散らして完成！",
+        ],
+        time: "15分", difficulty: "★☆☆",
+        kcal: 280, protein: 14, fat: 14, carbs: 22,
+      },
+      {
+        name: "えびチリ", emoji: "🦐", color: "#E53935", bg: "#FFEBEE",
+        mainIngredients: ["えび", "玉ねぎ", "長ネギ"],
+        displayIngredients: ["えび 200g", "玉ねぎ 1/4個", "長ネギ 1/4本", "豆板醤 小1", "ケチャップ 大2"],
+        steps: [
+          "えびの殻をむいて背ワタを取り、片栗粉でもむ",
+          "ケチャップ大2・鶏がらスープ大3・砂糖小1を混ぜる",
+          "フライパンに油と豆板醤を炒めて香りを出す",
+          "えびを加えてさっと炒め、玉ねぎ・長ネギを加える",
+          "合わせ調味料を加えて煮絡めて完成！",
+        ],
+        time: "15分", difficulty: "★★☆",
+        kcal: 220, protein: 22, fat: 6, carbs: 18,
+      },
+      {
+        name: "回鍋肉", emoji: "🥬", color: "#558B2F", bg: "#F1F8E9",
+        mainIngredients: ["豚肉", "キャベツ", "ピーマン"],
+        displayIngredients: ["豚バラ薄切り 200g", "キャベツ 1/4個", "ピーマン 2個", "豆板醤 小1", "甜麺醤 大1"],
+        steps: [
+          "豚肉は食べやすく、キャベツはざく切り、ピーマンは乱切りに",
+          "甜麺醤・豆板醤・醤油大1・砂糖小1・酒大1を合わせる",
+          "フライパンで豚肉を炒め、色が変わったら野菜を加える",
+          "野菜がしんなりしたら合わせ調味料を絡める",
+          "強火でさっと炒めて完成！",
+        ],
+        time: "15分", difficulty: "★★☆",
+        kcal: 420, protein: 22, fat: 28, carbs: 18,
+      },
+      {
+        name: "ロールキャベツ", emoji: "🥗", color: "#1565C0", bg: "#E3F2FD",
+        mainIngredients: ["キャベツ", "豚ひき肉", "玉ねぎ", "卵"],
+        displayIngredients: ["キャベツ 4〜6枚", "豚ひき肉 200g", "玉ねぎ 1/4個", "卵 1個", "コンソメ 2個"],
+        steps: [
+          "キャベツをゆでて柔らかくし、芯をそぎ落とす",
+          "みじん切り玉ねぎ・ひき肉・卵・塩コショウを混ぜる",
+          "肉ダネをキャベツで包み、楊枝で止める",
+          "鍋にコンソメスープ600mlを作りロールキャベツを並べる",
+          "中火で20分蓋をして煮込んで完成！",
+        ],
+        time: "40分", difficulty: "★★★",
+        kcal: 340, protein: 22, fat: 16, carbs: 24,
+      },
+      {
+        name: "だし巻き卵", emoji: "🥚", color: "#F9A825", bg: "#FFFDE7",
+        mainIngredients: ["卵"],
+        displayIngredients: ["卵 3個", "だし 大3", "醤油 小1", "みりん 小1", "塩 少々"],
+        steps: [
+          "卵・だし・醤油・みりん・塩をよく混ぜ合わせる",
+          "卵焼き器を中火で熱して油を薄く引く",
+          "卵液を3回に分けて流し込み、手前から巻く",
+          "巻きすで形を整えて数分おく",
+          "食べやすく切って大根おろしを添えて完成！",
+        ],
+        time: "10分", difficulty: "★★☆",
+        kcal: 160, protein: 11, fat: 10, carbs: 6,
+      },
+      {
+        name: "豚汁", emoji: "🍵", color: "#4E342E", bg: "#EFEBE9",
+        mainIngredients: ["豚肉", "大根", "にんじん", "じゃがいも", "長ネギ"],
+        displayIngredients: ["豚こま肉 100g", "大根 1/4本", "にんじん 1/2本", "じゃがいも 1個", "味噌 大2〜3"],
+        steps: [
+          "野菜は一口大に切り、豚肉は食べやすく切る",
+          "鍋に油を熱して豚肉と野菜を炒める",
+          "水700mlを加えて野菜が柔らかくなるまで煮る",
+          "味噌を溶き入れて長ネギを加える",
+          "煮立てず火を止めて完成！",
+        ],
+        time: "25分", difficulty: "★☆☆",
+        kcal: 250, protein: 14, fat: 10, carbs: 25,
+      },
+      {
+        name: "ツナと大根の煮物", emoji: "🥡", color: "#0277BD", bg: "#E1F5FE",
+        mainIngredients: ["大根", "ツナ缶"],
+        displayIngredients: ["大根 1/2本", "ツナ缶 1缶", "醤油・みりん 各大2", "砂糖 大1", "だし 300ml"],
+        steps: [
+          "大根を2cm幅のいちょう切りにして下茹でする",
+          "鍋にだし・醤油・みりん・砂糖を合わせて煮立てる",
+          "大根とツナ缶（汁ごと）を加える",
+          "中火で15分ほど煮て味を含ませる",
+          "味が染みたら完成！",
+        ],
+        time: "25分", difficulty: "★☆☆",
+        kcal: 180, protein: 12, fat: 4, carbs: 22,
+      },
+      {
+        name: "鶏肉の照り焼き", emoji: "🍗", color: "#E65100", bg: "#FBE9E7",
+        mainIngredients: ["鶏肉"],
+        displayIngredients: ["鶏もも肉 250g", "醤油・みりん 各大2", "砂糖 大1", "酒 大1"],
+        steps: [
+          "鶏肉の厚みを均一にし、フォークで数カ所刺す",
+          "醤油・みりん・砂糖・酒を混ぜてタレを作る",
+          "フライパンで皮目から中火で焼く（5分）",
+          "裏返して蓋をして4分蒸し焼きにする",
+          "タレを加えて煮絡めてツヤが出たら完成！",
+        ],
+        time: "15分", difficulty: "★☆☆",
+        kcal: 380, protein: 28, fat: 20, carbs: 18,
+      },
+      {
+        name: "トマトと卵の炒め物", emoji: "🍅", color: "#C62828", bg: "#FFEBEE",
+        mainIngredients: ["トマト", "卵"],
+        displayIngredients: ["トマト 2個", "卵 3個", "長ネギ 少量", "塩 少々", "ごま油 大1"],
+        steps: [
+          "トマトをくし切り、卵を割りほぐして塩を加える",
+          "フライパンに油を熱して溶き卵を半熟で取り出す",
+          "同じフライパンでトマトを炒める",
+          "卵を戻して塩・砂糖小1で味を調える",
+          "ごま油を回しかけて完成！",
+        ],
+        time: "10分", difficulty: "★☆☆",
+        kcal: 200, protein: 12, fat: 12, carbs: 10,
+      },
+      {
+        name: "もやしの塩炒め", emoji: "🌱", color: "#43A047", bg: "#E8F5E9",
+        mainIngredients: ["もやし"],
+        displayIngredients: ["もやし 2袋", "ごま油 大1", "塩コショウ 少々", "にんにく 1かけ", "鶏がらスープの素 小1"],
+        steps: [
+          "もやしを洗ってザルにあげておく",
+          "フライパンにごま油とにんにくを熱して香りを出す",
+          "もやしを加えて強火で手早く炒める",
+          "鶏がらスープの素・塩コショウで味を調える",
+          "仕上げにごまをふって完成！2〜3分で完成する時短おかず",
+        ],
+        time: "5分", difficulty: "★☆☆",
+        kcal: 80, protein: 4, fat: 6, carbs: 4,
+      },
+      {
+        name: "ブロッコリーとえびのガーリック炒め", emoji: "🥦", color: "#2E7D32", bg: "#E8F5E9",
+        mainIngredients: ["ブロッコリー", "えび", "にんにく"],
+        displayIngredients: ["ブロッコリー 1/2株", "えび 150g", "にんにく 2かけ", "塩コショウ 少々", "オリーブオイル 大1"],
+        steps: [
+          "ブロッコリーを小房に分けて下茹で、えびは背ワタを取る",
+          "フライパンにオリーブオイルとにんにくを熱する",
+          "えびを加えて色が変わるまで炒める",
+          "ブロッコリーを加えて塩コショウで味を調える",
+          "レモン汁を少々絞って完成！",
+        ],
+        time: "15分", difficulty: "★☆☆",
+        kcal: 200, protein: 20, fat: 8, carbs: 10,
+      },
+      {
+        name: "豆腐の味噌汁", emoji: "🍵", color: "#795548", bg: "#EFEBE9",
+        mainIngredients: ["豆腐", "長ネギ", "わかめ"],
+        displayIngredients: ["豆腐 1/2丁", "長ネギ 1/3本", "わかめ 少々", "味噌 大2", "だし 400ml"],
+        steps: [
+          "豆腐を1.5cm角に切る。わかめは水で戻す",
+          "鍋にだしを沸かす",
+          "豆腐を加えて温める",
+          "火を弱めて味噌を溶き入れる",
+          "長ネギ・わかめを加えて煮立てず火を止めて完成！",
+        ],
+        time: "10分", difficulty: "★☆☆",
+        kcal: 80, protein: 6, fat: 3, carbs: 6,
+      },
+      {
+        name: "鶏むね肉のサラダチキン", emoji: "🥗", color: "#00796B", bg: "#E0F2F1",
+        mainIngredients: ["鶏むね肉"],
+        displayIngredients: ["鶏むね肉 1枚(300g)", "塩 小1", "砂糖 小1", "酒 大1", "ハーブ お好みで"],
+        steps: [
+          "鶏むね肉の厚みを均一にしてフォークで刺す",
+          "塩・砂糖・酒を揉み込んで30分置く",
+          "耐熱袋に入れて空気を抜き密閉する",
+          "沸騰したお湯に入れて火を止め、30分放置する",
+          "薄く切って盛り付け完成！サラダに最適！",
+        ],
+        time: "40分（放置時間含む）", difficulty: "★☆☆",
+        kcal: 200, protein: 38, fat: 4, carbs: 2,
+      },
+      {
+        name: "きのこのバター醤油炒め", emoji: "🍄", color: "#6D4C41", bg: "#EFEBE9",
+        mainIngredients: ["しいたけ", "しめじ", "えのき"],
+        displayIngredients: ["しいたけ 4枚", "しめじ 1パック", "えのき 1袋", "バター 15g", "醤油 大1"],
+        steps: [
+          "きのこ類を食べやすく切る",
+          "フライパンにバターを溶かして中火で熱する",
+          "きのこを加えて炒める",
+          "しんなりしたら醤油を鍋肌から回しかける",
+          "パセリを散らして完成！",
+        ],
+        time: "10分", difficulty: "★☆☆",
+        kcal: 140, protein: 5, fat: 8, carbs: 10,
+      },
+      {
+        name: "卵とキャベツのスープ", emoji: "🍜", color: "#0288D1", bg: "#E1F5FE",
+        mainIngredients: ["卵", "キャベツ"],
+        displayIngredients: ["卵 2個", "キャベツ 2〜3枚", "鶏がらスープ 400ml", "塩コショウ 少々", "ごま油 少々"],
+        steps: [
+          "キャベツをざく切りにする",
+          "鍋に鶏がらスープを沸かしてキャベツを入れる",
+          "キャベツがしんなりしたら溶き卵を回し入れる",
+          "塩コショウで味を調え、ごま油を垂らす",
+          "完成！体にやさしいシンプルスープ",
+        ],
+        time: "10分", difficulty: "★☆☆",
+        kcal: 120, protein: 9, fat: 6, carbs: 8,
+      },
+    ];
+
+    /* =============================================
+       推奨PFC計算
+    ============================================= */
+    function calcRecommended(gender, weight) {
+      const dailyKcal = gender === "male" ? weight * 33 : weight * 27;
+      const mealKcal = Math.round(dailyKcal * 0.35);
+      return {
+        dailyKcal: Math.round(dailyKcal),
+        kcal: mealKcal,
+        protein: Math.round((mealKcal * 0.20) / 4),
+        fat: Math.round((mealKcal * 0.25) / 9),
+        carbs: Math.round((mealKcal * 0.55) / 4),
+      };
+    }
+
+    /* =============================================
+       食材マッチスコア (0〜1)
+    ============================================= */
+    function calcIngredientScore(recipe, userIngredients) {
+      if (userIngredients.length === 0) return 1;
+      const lowerUser = userIngredients.map(i => i.toLowerCase());
+      const matched = recipe.mainIngredients.filter(ing =>
+        lowerUser.some(u => ing.includes(u) || u.includes(ing))
+      );
+      return matched.length / recipe.mainIngredients.length;
+    }
+
+    /* PFCマッチスコア (0〜100) */
+    function calcPFCScore(recipe, rec) {
+      const kcalScore = Math.max(0, 100 - Math.abs(recipe.kcal - rec.kcal) / rec.kcal * 100);
+      const totalRecKcal = rec.protein * 4 + rec.fat * 9 + rec.carbs * 4;
+      const totalActKcal = recipe.protein * 4 + recipe.fat * 9 + recipe.carbs * 4;
+      const pRec = (rec.protein * 4) / totalRecKcal;
+      const fRec = (rec.fat * 9) / totalRecKcal;
+      const cRec = (rec.carbs * 4) / totalRecKcal;
+      const pAct = (recipe.protein * 4) / totalActKcal;
+      const fAct = (recipe.fat * 9) / totalActKcal;
+      const cAct = (recipe.carbs * 4) / totalActKcal;
+      const pfcScore = Math.max(0, 100 - (Math.abs(pAct - pRec) + Math.abs(fAct - fRec) + Math.abs(cAct - cRec)) * 150);
+      return Math.round(kcalScore * 0.5 + pfcScore * 0.5);
+    }
+
+    /* =============================================
+       コンポーネント
+    ============================================= */
+    function ScoreRing({ score }) {
+      const color = score >= 75 ? "#4CAF50" : score >= 50 ? "#FF9800" : "#F44336";
+      const label = score >= 75 ? "最適！" : score >= 50 ? "まずまず" : "低め";
+      const r = 28, circ = 2 * Math.PI * r;
+      const dash = (score / 100) * circ;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <svg width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r={r} fill="none" stroke="#eee" strokeWidth="7" />
+            <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="7"
+              strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+              transform="rotate(-90 36 36)"
+              style={{ transition: "stroke-dasharray 0.8s ease" }} />
+            <text x="36" y="41" textAnchor="middle" fontSize="14" fontWeight="bold" fill={color}>{score}</text>
+          </svg>
+          <span style={{ fontSize: "11px", fontWeight: "bold", color, marginTop: "-4px" }}>{label}</span>
+        </div>
+      );
+    }
+
+    function IngredientMatchBadge({ recipe, userIngredients }) {
+      const lowerUser = userIngredients.map(i => i.toLowerCase());
+      return (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "10px" }}>
+          {recipe.mainIngredients.map(ing => {
+            const hit = lowerUser.some(u => ing.includes(u) || u.includes(ing));
+            return (
+              <span key={ing} style={{
+                padding: "3px 10px", borderRadius: "10px", fontSize: "12px", fontWeight: "bold",
+                background: hit ? "#E8F5E9" : "#fafafa",
+                color: hit ? "#2E7D32" : "#bbb",
+                border: `1px solid ${hit ? "#4CAF50" : "#e0e0e0"}`,
+              }}>
+                {hit ? "✓" : "✗"} {ing}
+              </span>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function CompareBar({ label, recVal, actVal, pfcColor }) {
+      const max = Math.max(recVal, actVal) * 1.3 || 1;
+      const recPct = (recVal / max) * 100;
+      const actPct = (actVal / max) * 100;
+      const diff = actVal - recVal;
+      return (
+        <div style={{ marginBottom: "10px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+            <span style={{ fontSize: "12px", color: "#666", display: "flex", alignItems: "center", gap: "5px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: pfcColor, display: "inline-block" }} />
+              {label}
+            </span>
+            <span style={{ fontSize: "12px" }}>
+              <span style={{ color: pfcColor, fontWeight: "bold" }}>{actVal}g</span>
+              <span style={{ color: "#aaa" }}> / 推奨{recVal}g</span>
+              <span style={{ color: diff > 0 ? "#F44336" : "#4CAF50", marginLeft: "4px", fontSize: "11px" }}>
+                ({diff > 0 ? "+" : ""}{diff}g)
+              </span>
+            </span>
+          </div>
+          <div style={{ position: "relative", height: "10px", background: "#f0f0f0", borderRadius: "5px" }}>
+            <div style={{ position: "absolute", width: `${recPct}%`, height: "100%", background: "#ddd", borderRadius: "5px" }} />
+            <div style={{ position: "absolute", width: `${actPct}%`, height: "100%", background: pfcColor, borderRadius: "5px", opacity: 0.85, transition: "width 0.6s ease" }} />
+            <div style={{ position: "absolute", left: `${recPct}%`, top: "-3px", width: "2px", height: "16px", background: "#999", borderRadius: "1px" }} />
+          </div>
+        </div>
+      );
+    }
+
+    function PFCBar({ protein, fat, carbs }) {
+      const total = protein * 4 + fat * 9 + carbs * 4;
+      const pPct = Math.round((protein * 4 / total) * 100);
+      const fPct = Math.round((fat * 9 / total) * 100);
+      const cPct = 100 - pPct - fPct;
+      return (
+        <div>
+          <div style={{ display: "flex", borderRadius: "8px", overflow: "hidden", height: "12px", marginBottom: "6px" }}>
+            <div style={{ width: `${pPct}%`, background: "#4CAF50" }} />
+            <div style={{ width: `${fPct}%`, background: "#FF9800" }} />
+            <div style={{ width: `${cPct}%`, background: "#2196F3" }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            {[["P タンパク質", protein, pPct, "#4CAF50"], ["F 脂質", fat, fPct, "#FF9800"], ["C 炭水化物", carbs, cPct, "#2196F3"]].map(([l, v, p, c]) => (
+              <div key={l} style={{ textAlign: "center", flex: 1 }}>
+                <div style={{ fontSize: "10px", color: "#888" }}>{l}: <b style={{ color: c }}>{v}g</b></div>
+                <div style={{ fontSize: "10px", color: "#aaa" }}>{p}%</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    /* =============================================
+       食材入力コンポーネント
+    ============================================= */
+    function IngredientInput({ ingredients, setIngredients }) {
+      const [inputVal, setInputVal] = useState("");
+      const inputRef = useRef(null);
+
+      const addIngredient = (val) => {
+        const trimmed = val.trim();
+        if (trimmed && !ingredients.includes(trimmed)) {
+          setIngredients(prev => [...prev, trimmed]);
+        }
+        setInputVal("");
+      };
+
+      const handleKeyDown = (e) => {
+        if (e.key === "Enter" || e.key === "," || e.key === "　") {
+          e.preventDefault();
+          addIngredient(inputVal);
+        } else if (e.key === "Backspace" && inputVal === "" && ingredients.length > 0) {
+          setIngredients(prev => prev.slice(0, -1));
+        }
+      };
+
+      const SUGGESTIONS = [
+        "鶏肉", "豚肉", "牛肉", "卵", "豆腐", "鮭", "えび", "ツナ缶",
+        "玉ねぎ", "キャベツ", "じゃがいも", "にんじん", "大根", "長ネギ",
+        "もやし", "なす", "ほうれん草", "ブロッコリー", "トマト", "しいたけ",
+        "しめじ", "えのき", "ピーマン", "きゅうり", "生姜", "にんにく",
+        "ご飯", "パスタ", "うどん", "豆板醤", "味噌", "バター",
+      ];
+
+      const unusedSuggestions = SUGGESTIONS.filter(s => !ingredients.includes(s));
+
+      return (
+        <div>
+          {/* Tag input area */}
+          <div
+            onClick={() => inputRef.current?.focus()}
+            style={{
+              minHeight: "52px", padding: "8px 10px",
+              border: "2px solid #667eea", borderRadius: "14px",
+              display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center",
+              cursor: "text", background: "#fafbff",
+            }}
+          >
+            {ingredients.map(ing => (
+              <span key={ing} style={{
+                display: "inline-flex", alignItems: "center", gap: "4px",
+                background: "#667eea", color: "white",
+                borderRadius: "20px", padding: "4px 10px 4px 12px",
+                fontSize: "13px", fontWeight: "bold",
+              }}>
+                {ing}
+                <button
+                  onClick={e => { e.stopPropagation(); setIngredients(prev => prev.filter(i => i !== ing)); }}
+                  style={{
+                    background: "rgba(255,255,255,0.3)", border: "none",
+                    color: "white", borderRadius: "50%",
+                    width: "18px", height: "18px", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "12px", padding: 0, lineHeight: 1, fontFamily: "inherit",
+                  }}
+                >×</button>
+              </span>
+            ))}
+            <input
+              ref={inputRef}
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => { if (inputVal.trim()) addIngredient(inputVal); }}
+              placeholder={ingredients.length === 0 ? "食材を入力してEnter（例：鶏肉）" : ""}
+              style={{
+                border: "none", outline: "none", background: "transparent",
+                fontSize: "14px", minWidth: "160px", flex: 1,
+                fontFamily: "inherit", color: "#333",
+              }}
+            />
+          </div>
+
+          {/* Hint */}
+          <p style={{ fontSize: "11px", color: "#aaa", margin: "5px 0 10px", textAlign: "right" }}>
+            Enterまたは「,」で追加 ／ Backspaceで削除
+          </p>
+
+          {/* Quick suggestions */}
+          <p style={{ fontSize: "12px", color: "#888", margin: "0 0 7px", fontWeight: "bold" }}>
+            よく使う食材をタップで追加：
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+            {unusedSuggestions.slice(0, 20).map(s => (
+              <button
+                key={s}
+                onClick={() => setIngredients(prev => [...prev, s])}
+                style={{
+                  background: "white", border: "1.5px solid #ddd",
+                  borderRadius: "20px", padding: "4px 12px",
+                  fontSize: "12px", color: "#555", cursor: "pointer",
+                  fontFamily: "inherit", transition: "all 0.15s",
+                }}
+              >{s}</button>
+            ))}
+          </div>
+
+          {/* Clear all */}
+          {ingredients.length > 0 && (
+            <button
+              onClick={() => setIngredients([])}
+              style={{
+                marginTop: "10px", background: "none", border: "none",
+                color: "#F44336", fontSize: "12px", cursor: "pointer",
+                fontFamily: "inherit", textDecoration: "underline",
+              }}
+            >
+              食材をすべてクリア
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    /* =============================================
+       メインアプリ
+    ============================================= */
+    function App() {
+      const [gender, setGender] = useState(null);
+      const [weight, setWeight] = useState("");
+      const [ingredients, setIngredients] = useState([]);
+      const [step, setStep] = useState("input");
+      const [current, setCurrent] = useState(null);
+      const [isSpinning, setIsSpinning] = useState(false);
+      const [showResult, setShowResult] = useState(false);
+      const [spinCount, setSpinCount] = useState(0);
+
+      const rec = step === "gacha" && weight ? calcRecommended(gender, parseFloat(weight)) : null;
+      const inputValid = gender && weight && parseFloat(weight) >= 30;
+
+      // 使える食材でマッチするレシピを計算
+      const matchingRecipes = ALL_RECIPES.filter(r =>
+        calcIngredientScore(r, ingredients) >= 0.5
+      );
+      const gachaPool = matchingRecipes.length >= 2 ? matchingRecipes : ALL_RECIPES;
+      const isFiltered = matchingRecipes.length >= 2;
+
+      const spin = () => {
+        if (isSpinning) return;
+        setIsSpinning(true);
+        setShowResult(false);
+        setSpinCount(c => c + 1);
+        let count = 0;
+        const interval = setInterval(() => {
+          setCurrent(gachaPool[Math.floor(Math.random() * gachaPool.length)]);
+          count++;
+          if (count >= 14) {
+            clearInterval(interval);
+            const scored = gachaPool.map(r => ({
+              ...r,
+              score: calcIngredientScore(r, ingredients) * 0.4 + calcPFCScore(r, rec) / 100 * 0.6,
+            })).sort((a, b) => b.score - a.score);
+            const weights = scored.map((_, i) => Math.max(1, 12 - i * 1.5));
+            const totalW = weights.reduce((a, b) => a + b, 0);
+            let rand = Math.random() * totalW;
+            let chosen = scored[0];
+            for (let i = 0; i < scored.length; i++) {
+              rand -= weights[i];
+              if (rand <= 0) { chosen = scored[i]; break; }
+            }
+            setCurrent(chosen);
+            setIsSpinning(false);
+            setShowResult(true);
+          }
+        }, 75);
+      };
+
+      const pfcMatchScore = current && rec ? calcPFCScore(current, rec) : null;
+      const ingScore = current ? calcIngredientScore(current, ingredients) : 0;
+      const previewRec = inputValid ? calcRecommended(gender, parseFloat(weight)) : null;
+
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          padding: "24px 16px 48px",
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: "20px" }}>
+            <div style={{ fontSize: "50px", lineHeight: 1 }}>🎰</div>
+            <h1 style={{
+              color: "white", fontSize: "28px", fontWeight: "bold",
+              margin: "8px 0 4px", textShadow: "0 2px 10px rgba(0,0,0,0.3)",
+              letterSpacing: "2px",
+            }}>献立ガチャ</h1>
+            <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "13px" }}>
+              食材を入力して、あなた専用の献立を引こう！
+            </p>
+          </div>
+
+          <div style={{ width: "100%", maxWidth: "420px" }}>
+
+            {/* ===== STEP 1 ===== */}
+            <div style={{
+              background: "white", borderRadius: "22px", padding: "22px 20px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.28)", marginBottom: "16px",
+            }}>
+              <h2 style={{
+                fontSize: "15px", fontWeight: "bold", color: "#444",
+                margin: "0 0 16px", display: "flex", alignItems: "center", gap: "8px",
+              }}>
+                <span style={{
+                  background: step === "gacha" ? "#4CAF50" : "#667eea",
+                  color: "white", borderRadius: "50%", width: "24px", height: "24px",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "12px", transition: "background 0.3s",
+                }}>{step === "gacha" ? "✓" : "1"}</span>
+                あなたの情報
+              </h2>
+
+              {/* Gender */}
+              <p style={{ fontSize: "13px", color: "#555", margin: "0 0 8px", fontWeight: "bold" }}>性別</p>
+              <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+                {[["male", "👨 男性"], ["female", "👩 女性"]].map(([val, label]) => (
+                  <button key={val} onClick={() => setGender(val)} style={{
+                    flex: 1, padding: "11px 0", borderRadius: "12px",
+                    border: `2px solid ${gender === val ? "#667eea" : "#e0e0e0"}`,
+                    background: gender === val ? "#eef0ff" : "white",
+                    color: gender === val ? "#667eea" : "#888",
+                    fontWeight: "bold", fontSize: "14px", cursor: "pointer",
+                    transition: "all 0.2s", fontFamily: "inherit",
+                  }}>{label}</button>
+                ))}
+              </div>
+
+              {/* Weight */}
+              <p style={{ fontSize: "13px", color: "#555", margin: "0 0 8px", fontWeight: "bold" }}>体重</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+                <input
+                  type="number" min="30" max="200" value={weight}
+                  onChange={e => setWeight(e.target.value)}
+                  placeholder="例：60"
+                  style={{
+                    flex: 1, padding: "11px 16px", borderRadius: "12px",
+                    border: `2px solid ${weight && parseFloat(weight) >= 30 ? "#667eea" : "#e0e0e0"}`,
+                    fontSize: "20px", fontWeight: "bold",
+                    outline: "none", color: "#333", fontFamily: "inherit",
+                    transition: "border-color 0.2s",
+                  }}
+                />
+                <span style={{ fontSize: "18px", color: "#666", fontWeight: "bold" }}>kg</span>
+              </div>
+
+              {/* Recommended preview */}
+              {previewRec && (
+                <div style={{
+                  background: "linear-gradient(135deg, #667eea12, #764ba212)",
+                  border: "1.5px solid #667eea44", borderRadius: "14px",
+                  padding: "12px 14px", marginBottom: "16px",
+                }}>
+                  <p style={{ fontSize: "12px", color: "#667eea", fontWeight: "bold", margin: "0 0 8px" }}>
+                    🎯 推奨（夕食1食分）
+                  </p>
+                  <div style={{ display: "flex", justifyContent: "space-around" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: "20px", fontWeight: "bold", color: "#764ba2" }}>{previewRec.kcal}</div>
+                      <div style={{ fontSize: "10px", color: "#888" }}>kcal</div>
+                    </div>
+                    {[["P", previewRec.protein, "#4CAF50"], ["F", previewRec.fat, "#FF9800"], ["C", previewRec.carbs, "#2196F3"]].map(([l, v, c]) => (
+                      <div key={l} style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: "20px", fontWeight: "bold", color: c }}>{v}</div>
+                        <div style={{ fontSize: "10px", color: "#888" }}>{l}(g)</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => { if (inputValid) { setStep("gacha"); setCurrent(null); setShowResult(false); setSpinCount(0); } }}
+                disabled={!inputValid}
+                style={{
+                  width: "100%", padding: "13px 0",
+                  background: inputValid ? "linear-gradient(135deg, #667eea, #764ba2)" : "#e0e0e0",
+                  color: "white", border: "none", borderRadius: "14px",
+                  fontSize: "15px", fontWeight: "bold",
+                  cursor: inputValid ? "pointer" : "not-allowed",
+                  boxShadow: inputValid ? "0 6px 20px rgba(102,126,234,0.45)" : "none",
+                  transition: "all 0.2s", fontFamily: "inherit", letterSpacing: "1px",
+                }}
+              >
+                {inputValid ? "次へ →" : "性別と体重を入力してください"}
+              </button>
+            </div>
+
+            {/* ===== STEP 2: 食材入力 ===== */}
+            <div style={{
+              background: "white", borderRadius: "22px", padding: "22px 20px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.28)", marginBottom: "16px",
+            }}>
+              <h2 style={{
+                fontSize: "15px", fontWeight: "bold", color: "#444",
+                margin: "0 0 14px", display: "flex", alignItems: "center", gap: "8px",
+              }}>
+                <span style={{
+                  background: step === "gacha" ? "#4CAF50" : "#667eea",
+                  color: "white", borderRadius: "50%", width: "24px", height: "24px",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "12px",
+                }}>{step === "gacha" ? "✓" : "2"}</span>
+                冷蔵庫の食材を入力
+              </h2>
+
+              <IngredientInput ingredients={ingredients} setIngredients={setIngredients} />
+
+              {/* Match info */}
+              {ingredients.length > 0 && step !== "gacha" && (
+                <div style={{
+                  marginTop: "12px", padding: "10px 14px",
+                  background: isFiltered ? "#E8F5E9" : "#FFF8E1",
+                  borderRadius: "12px",
+                  border: `1px solid ${isFiltered ? "#4CAF50" : "#FFB300"}`,
+                }}>
+                  <span style={{ fontSize: "13px", color: isFiltered ? "#2E7D32" : "#F57F17", fontWeight: "bold" }}>
+                    {isFiltered
+                      ? `✅ ${matchingRecipes.length}種類のレシピが見つかりました！`
+                      : `⚠️ マッチするレシピが少ないため全${ALL_RECIPES.length}種から引きます`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* ===== STEP 3: ガチャ ===== */}
+            {step === "gacha" && rec && (
+              <div style={{
+                background: "white", borderRadius: "22px", padding: "22px 20px",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.28)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                  <h2 style={{
+                    fontSize: "15px", fontWeight: "bold", color: "#444",
+                    margin: 0, display: "flex", alignItems: "center", gap: "8px",
+                  }}>
+                    <span style={{
+                      background: "#667eea", color: "white", borderRadius: "50%",
+                      width: "24px", height: "24px",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "12px",
+                    }}>3</span>
+                    献立ガチャ
+                  </h2>
+                  <button
+                    onClick={() => { setStep("input"); setCurrent(null); setShowResult(false); }}
+                    style={{
+                      fontSize: "12px", color: "#667eea", background: "none",
+                      border: "1.5px solid #667eea", borderRadius: "8px",
+                      padding: "4px 12px", cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >← 戻る</button>
+                </div>
+
+                {/* Pool info */}
+                <div style={{
+                  padding: "8px 14px", marginBottom: "14px",
+                  background: isFiltered ? "#E8F5E9" : "#F5F5F5",
+                  borderRadius: "10px",
+                  border: `1px solid ${isFiltered ? "#4CAF50" : "#e0e0e0"}`,
+                  fontSize: "13px",
+                  color: isFiltered ? "#2E7D32" : "#888",
+                }}>
+                  {isFiltered
+                    ? `🎯 あなたの食材でできる ${gachaPool.length} 種類からガチャを引きます`
+                    : `📦 全 ${ALL_RECIPES.length} 種類からガチャを引きます`}
+                </div>
+
+                {/* Initial state */}
+                {!current && !isSpinning && (
+                  <div style={{ textAlign: "center", padding: "28px 0" }}>
+                    <div style={{ fontSize: "60px" }}>🎯</div>
+                    <p style={{ color: "#888", fontSize: "14px", marginTop: "12px", lineHeight: 1.7 }}>
+                      ガチャを回してあなたに<br />ぴったりの献立を引こう！
+                    </p>
+                  </div>
+                )}
+
+                {/* Recipe card */}
+                {(current || isSpinning) && (
+                  <div style={{
+                    background: current?.bg || "#f9f9f9",
+                    border: `3px solid ${current?.color || "#ddd"}`,
+                    borderRadius: "18px", padding: "18px",
+                    marginBottom: "16px", transition: "all 0.1s ease",
+                  }}>
+                    {/* Title row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                      <div style={{ fontSize: "42px", lineHeight: 1 }}>{current?.emoji}</div>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: 0, fontSize: "18px", color: current?.color, fontWeight: "bold" }}>
+                          {current?.name}
+                        </h3>
+                        {showResult && (
+                          <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+                            <span style={{ fontSize: "12px", color: "#666" }}>⏱ {current.time}</span>
+                            <span style={{ fontSize: "12px", color: "#666" }}>{current.difficulty}</span>
+                          </div>
+                        )}
+                      </div>
+                      {showResult && pfcMatchScore !== null && <ScoreRing score={pfcMatchScore} />}
+                    </div>
+
+                    {showResult && (
+                      <>
+                        {/* Ingredient match */}
+                        {ingredients.length > 0 && (
+                          <div style={{ background: "white", borderRadius: "12px", padding: "10px 12px", marginBottom: "12px" }}>
+                            <p style={{ fontSize: "12px", fontWeight: "bold", color: "#555", margin: "0 0 7px" }}>
+                              🧊 食材マッチ（{Math.round(ingScore * 100)}%）
+                            </p>
+                            <IngredientMatchBadge recipe={current} userIngredients={ingredients} />
+                          </div>
+                        )}
+
+                        {/* Calorie */}
+                        <div style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          background: "white", borderRadius: "12px", padding: "10px 14px",
+                          marginBottom: "12px", border: `1.5px solid ${current.color}`,
+                        }}>
+                          <div>
+                            <span style={{ fontSize: "26px", fontWeight: "bold", color: current.color }}>{current.kcal}</span>
+                            <span style={{ fontSize: "13px", color: "#888", marginLeft: "4px" }}>kcal</span>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "11px", color: "#aaa" }}>あなたの推奨</div>
+                            <div style={{ fontSize: "16px", fontWeight: "bold", color: "#667eea" }}>{rec.kcal} kcal</div>
+                          </div>
+                        </div>
+
+                        {/* PFC bar */}
+                        <div style={{ background: "white", borderRadius: "12px", padding: "12px 14px", marginBottom: "12px" }}>
+                          <p style={{ fontSize: "12px", fontWeight: "bold", color: "#555", margin: "0 0 8px" }}>
+                            📊 PFCバランス
+                          </p>
+                          <PFCBar protein={current.protein} fat={current.fat} carbs={current.carbs} />
+                        </div>
+
+                        {/* Compare */}
+                        <div style={{ background: "white", borderRadius: "12px", padding: "12px 14px", marginBottom: "12px" }}>
+                          <p style={{ fontSize: "12px", fontWeight: "bold", color: "#555", margin: "0 0 10px" }}>
+                            🔍 推奨値との比較
+                          </p>
+                          <CompareBar label="タンパク質(P)" recVal={rec.protein} actVal={current.protein} pfcColor="#4CAF50" />
+                          <CompareBar label="脂質(F)" recVal={rec.fat} actVal={current.fat} pfcColor="#FF9800" />
+                          <CompareBar label="炭水化物(C)" recVal={rec.carbs} actVal={current.carbs} pfcColor="#2196F3" />
+                        </div>
+
+                        <hr style={{ border: "none", borderTop: "1px dashed #ddd", margin: "12px 0" }} />
+
+                        {/* Display ingredients */}
+                        <p style={{ fontWeight: "bold", color: "#555", fontSize: "12px", margin: "0 0 7px" }}>🛒 使う食材</p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
+                          {current.displayIngredients.map(ing => (
+                            <span key={ing} style={{
+                              background: "white",
+                              border: `1px solid ${current.color}`,
+                              color: current.color, borderRadius: "10px",
+                              padding: "3px 10px", fontSize: "12px", fontWeight: "bold",
+                            }}>{ing}</span>
+                          ))}
+                        </div>
+
+                        {/* Steps */}
+                        <p style={{ fontWeight: "bold", color: "#555", fontSize: "12px", margin: "0 0 8px" }}>📝 作り方</p>
+                        {current.steps.map((s, i) => (
+                          <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "flex-start" }}>
+                            <span style={{
+                              background: current.color, color: "white", borderRadius: "50%",
+                              width: "20px", height: "20px",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: "11px", fontWeight: "bold", flexShrink: 0, marginTop: "1px",
+                            }}>{i + 1}</span>
+                            <span style={{ fontSize: "13px", color: "#444", lineHeight: 1.55 }}>{s}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Spin button */}
+                <button
+                  onClick={spin}
+                  disabled={isSpinning}
+                  style={{
+                    width: "100%", padding: "15px 0",
+                    background: isSpinning ? "#ccc" : "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+                    color: "white", border: "none", borderRadius: "50px",
+                    fontSize: "17px", fontWeight: "bold",
+                    cursor: isSpinning ? "not-allowed" : "pointer",
+                    boxShadow: isSpinning ? "none" : "0 8px 24px rgba(245,87,108,0.45)",
+                    transition: "all 0.2s", letterSpacing: "1px", fontFamily: "inherit",
+                  }}
+                >
+                  {isSpinning ? "ガチャ中... 🎲" : showResult ? "もう一回ガチャ！🎰" : "献立ガチャを回す！🎰"}
+                </button>
+
+                {spinCount > 0 && !isSpinning && (
+                  <p style={{ color: "#bbb", fontSize: "11px", textAlign: "center", marginTop: "8px" }}>
+                    {spinCount}回目 ／ 対象{gachaPool.length}種類
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "11px", marginTop: "24px", textAlign: "center" }}>
+            ※ カロリー・栄養素は目安です。実際の量や調理法により異なります。
+          </p>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
